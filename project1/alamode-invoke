@@ -1,0 +1,3 @@
+#!/bin/bash
+
+./alamode-fetch -f hosts.alamode | ./alamode-publish -d public_html

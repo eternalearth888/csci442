@@ -1,0 +1,116 @@
+#!/bin/bash
+
+#Maria Deslis
+#Fall 2013 - Camp - OS
+#Project 1
+
+#Part 1
+
+#Flags -n/-f (as given by alamodesentrySAMPLE.sh)
+while getopts "f:n:" OPTIONS
+	do
+		case "$OPTIONS" in
+			# N for NAME Input
+		f) if [ ! -z $READ_FILE ] #Check if flag parsed already
+			then
+				echo "$0: does not support multiple -f's"
+				exit 1
+			else
+				if [ ! -z $OPTARG ] #Check token was given with this flag
+					then
+						READ_FILE=$OPTARG
+					else
+						echo "$0: Must specify a file with hostnames/IPs with -f"
+						exit 1
+				fi
+			fi;;
+		n) if [ ! -z $READ_HOSTNAME ]
+			then
+				echo "$0: does not support multiple -n's"
+				exit 1
+		   	else
+				if [ ! -z $OPTARG ]
+					then
+						READ_HOSTNAME=$OPTARG
+					else
+						echo "$0: Must specify a file with hostnames/IPs with -n"
+						exit 1
+				fi
+			fi;;
+		\?) echo "usage: $0 [-d directory (OPTIONAL)] [-n IP or Name of computer] or [-f File containing names or IPs]"
+			exit;;
+	esac
+done
+
+
+
+#Error if READ_FILE or READ_HOSTNAME has not been defined
+if [ -z $READ_FILE ] && [ -z $READ_HOSTNAME ]
+	then
+		echo "$0: Please provide the -f OR -n flag, not both"
+		exit 1
+fi
+
+#Input validation for -f flag
+if [ ! -f $READ_FILE ] #Check if file exists
+	then
+		echo "$0: The file \"$READ_FILE\" does not exist."
+		exit 1
+fi
+
+if [ ! -r $READ_FILE ] #Check if there are read permissions
+	then
+		echo "$0: Cannot read \"$READ_FILE\"; checkpermissions"
+		exit 1
+fi
+
+#Make directory to store files/information
+tmpdir=$(mktemp -d)
+
+#function for ssh/heredone
+function grabinfo {
+	#ssh into machines
+	ssh -q -T -o "StrictHostKeyChecking=no" mdeslis@$1 bash <<-ENDSSH > $tmpdir/$1
+
+	#Which machine we are on
+	echo "Hostname: \$(hostname)"
+
+	#How many users are currently logged in
+	currentUsers="\$(who | wc -l)"
+	echo "Users: \$(echo \$currentUsers)"
+
+	#How many processes are currently executing in each possible state
+	currentProcesses="\$(ps hax -o s)"
+	echo "Sleeping: \$(echo \$currentProcesses | sed "s/ /\n/g" | grep "S" | wc -l)"
+	echo "Running: \$(echo \$currentProcesses | sed "s/ /\n/g" | grep "R" | wc -l)"
+	echo "Stopped: \$(echo \$currentProcesses | sed "s/ /\n/g" | grep "T" | wc -l)"
+	echo "Zombie: \$(echo \$currentProcesses | sed "s/ /\n/g" | grep 'Z' | wc -l)"
+	echo "Idle: \$(echo \$currentProcesses | sed "s/ /\n/g" | grep 'I' | wc -l)"
+
+	echo "Uninterruptable: \$(echo \$currentProcesses | sed "s/ /\n/g" | grep 'U' | wc -l)"
+
+	#Average load for the last one, five and fifteen minutes
+	averageLoad=" \$(cat /proc/loadavg | awk '{print \$1, \$2, \$3}')"
+	echo "1min: \$(echo \$averageLoad | awk '{print \$1}') "
+	echo "5min: \$(echo \$averageLoad | awk '{print \$2}') "
+	echo "15min: \$(echo \$averageLoad | awk '{print \$3}') "
+
+#Ending string
+ENDSSH
+}
+
+if [ ! -z $READ_FILE ]
+	then
+		#Every line in the file READ_FILE will be saved to the variable machine to ssh into
+		for machine in $(cat $READ_FILE) 
+			do
+				grabinfo $machine	
+		done
+	else
+		grabinfo $READ_HOSTNAME
+fi
+
+echo "$tmpdir"
+
+#Exit Script
+exit 0 

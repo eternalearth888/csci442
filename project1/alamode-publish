@@ -1,0 +1,325 @@
+#!/bin/bash
+
+#Maria Deslis
+#Fall 2013 - OS - Camp 
+#Project 1
+
+#getopts as taken from alamodepublishSAMPLE.sh
+#colon before h says ignore the case without any arguements
+while getopts ":h:s:d:" OPTIONS
+	do
+		case "$OPTIONS" in
+			h)	if [ ! -z $HEADER_FILE ] #Check if flag is parsed
+					then
+						echo "$0: does not support multiple -h's"
+						exit 1
+				else
+					if [ ! -z $OPTARG ] #Check that token was given
+						then
+							HEADER_FILE=$OPTARG
+					else
+						echo "$0: Must specify a template file with -h"
+						exit 1
+					fi
+				fi;;
+			s) if [ ! -z $SOURCE_DIRECTORY ] #Check if flag is parsed
+					then
+						echo "$0: does note support multiple -s's"
+						exit 1
+				else
+					if [ ! -z $OPTARG ] #Check token was given with this flag
+						then
+							SOURCE_DIRECTORY=$OPTARG
+						else
+							echo "$0: Must specify the directory to look in for the hostfiles"
+							exit 1
+					fi
+				fi;;
+			d) if [ ! -z $SITE_DIRECTORY ] #Check if flag is parsed
+					then
+						echo "$0: does not support multiple -d's"
+						exit 1
+				else
+					if [ ! -z $OPTARG ] #Check that token was given
+						then
+							SITE_DIRECTORY=$OPTARG
+					else
+						echo "$0: Must specify a directory where the website should be written"
+						exit 1
+					fi
+				fi;;
+			\?)	echo "usage: $0 [-s source directory] [-d destination directory] -t File containing html template -h File containing html header -f File containing html footer"
+				exit 1;;
+		esac
+	done
+
+####### Input validation for -h flag ########
+if [ ! -z $HEADER_FILE ]	
+	then
+		if [ ! -f $HEADER_FILE ] #Check if file exists
+			then
+				echo "$0: The file \"$HEADER_FILE\" does not exist."
+				exit 1
+		fi
+
+		if [ ! -r $HEADER_FILE ] #Check if we have read permissions
+			then
+				echo "$0: Cannot read \"$HEADER_FILE\"; check permissions."
+				exit 1
+		fi
+fi
+####### Input validation for -s flag ########
+if [ ! -z $SOURCE_DIRECTORY ]	
+	then
+		if [ ! -s $SOURCE_DIRECTORY ] #Check that source directory exists
+			then
+				echo "$0: The directory \"$SOURCE_DIRECTORY\" does not exist."
+				exit 1
+		fi
+
+		if [ ! -r $SOURCE_DIRECTORY ] #Check that we have read permissions
+			then
+				echo "$0: Cannot read \"$SOURCE_DIRECTORY\"; check permissions."
+				exit 1
+		fi
+fi
+####### Input validation for -d flag ########
+if [ ! -z $SITE_DIRECTORY ]
+	then
+		if [ ! -d $SITE_DIRECTORY ] #Check that destination directory exists
+			then
+				echo "$0: The directory \"$SITE_DIRECTORY\" does not exist."
+				SITE_DIRECTORY="${PWD}"
+				echo "$0: File moved to \"$PWD\""
+		fi
+
+		if [ ! -r $SITE_DIRECTORY ] #Check that we have read permissions on destination directory
+			then
+				echo "$0: Cannot read \"$SITE_DIRECTORY\"; check permissions."
+				exit 1
+		fi
+fi
+
+####### Shortcut for $webpage ########
+webpage=$SITE_DIRECTORY/alamodeMachines.html
+
+####### Read directory from ./alamode-fetch ########
+read directory 
+
+
+####### Graphical features for color coding machine info based on number of processes ########
+
+####### Functions to make html editing easier for me ########
+function htmlOPEN {
+	cat <<htmlOPEN > $webpage
+		<!DOCTYPE HTML>
+		<html>
+			<head>
+				<header>
+					Maria Deslis | Project 1 | csci442 | Fall2013 | Camp
+				</header>
+				<title>
+					mdeslis | project_1	
+				</title>
+				<style type="text/css">
+					body {
+						min-width: 600px;
+						width: 90%;
+						color: #31384D;
+						background-color: #D3BBBE;
+						font-family: Verdana, sans-serif;
+						margin:auto;
+					}
+
+					table {
+						background-color: #31384D;
+						margin: auto;
+						text-align: center;
+						vertical-align: middle;
+						border: 2px;
+					}
+
+					table.colorKEY {
+						margin:auto;
+						text-align: center;
+						vertical-align: middle;
+					}
+
+					#red {
+						background-color: #F93839;
+					}
+
+					#yellow {
+						background-color: #F6A842;
+					}
+
+					#green {
+						background-color: #72913D;
+					}
+
+					#grey {
+						background-color: #D0CECE;
+					}
+
+					tr:nth-child(odd) {
+						background-color: #F5579E;
+					}
+
+					tr:nth-child(even) {
+						background-color: #F4CBEC;
+					}
+
+					th {
+						border-color: #31384D;
+						color: #FFFFFF;
+						background-color: #A47163;
+					}
+
+					header,footer {
+						font: normal 130% 'News Cycle', arial, sans-serif;
+						text-align: center;
+						padding: 1em;
+					}
+				</style>
+			</head>
+		<body>
+htmlOPEN
+}
+
+function htmlTABLETOP {
+	cat <<htmlTABLETOP >> $webpage
+		<table>
+			<tr>
+				<th> Hostname </th>
+				<th> Users </th>
+				<th> Sleeping </th>
+				<th> Running </th>
+				<th> Stopped </th>
+				<th> Zombie </th>
+				<th> Idle </th>
+				<th> Uninterruptable </th>
+				<th> Avg. Load 1min </th>
+				<th> Avg. Load 5min </th>
+				<th> Avg. Load 15min </th>
+			</tr>
+htmlTABLETOP
+}
+
+function htmlTABLEROWS {
+	cat <<htmlTABLEROWS >> $webpage
+		<tr id="$1">
+htmlTABLEROWS
+}
+
+function htmlTABLEROWE {
+	cat <<htmlTABLEROWE >> $webpage
+		</tr>
+htmlTABLEROWE
+}
+
+function htmlTABLECELLS {
+	cat <<htmlTABLECELLS >> $webpage
+		<td>
+htmlTABLECELLS
+}
+
+function htmlTABLECELLE {
+	cat <<htmlTABLECELLE >> $webpage
+		</td>
+htmlTABLECELLE
+}
+
+function htmlTABLEEND {
+	cat <<htmlTABLEEND >> $webpage
+		</table>
+htmlTABLEEND
+}
+
+function htmlFOOTER {
+	cat <<htmlFOOTER >> $webpage
+		<footer>
+			<p>
+				Last Updated: `date`
+			</p>
+		</footer>
+htmlFOOTER
+}
+
+function colorKEY {
+	cat <<colorKEY >> $webpage
+		<br />
+		<table class="colorKEY">
+			<tr>
+				<th id="red">Heavily Used</th>
+				<th id="yellow">Moderately Used</th>
+				<th id="green">Unused</th>
+				<th id="grey">Unreachable</th>
+			</tr>
+		</table>
+colorKEY
+}
+
+function htmlCLOSE {
+	cat <<htmlCLOSE >> $webpage
+		</body>
+		</html>
+htmlCLOSE
+}
+
+################# Putting it all together ###############
+htmlOPEN
+htmlTABLETOP
+
+################# Loop through directory,read files, creating webpage ###############
+for machine in $(ls $directory)
+	do
+##### Looking at Avg. Load 1 min to determine machine usage -> color coding ##
+		
+		#Grabs avg load 1 min value
+		readAvg=$(cat $directory/$machine | awk '{print $2}' | head -n 9 | tail -n 1)
+
+		if [ ! -z $readAvg ]
+			then
+				if [ $(echo "$readAvg <= 0.33" | bc) -eq "1" ]
+					then
+						htmlTABLEROWS green
+				elif [ $(echo "$readAvg > 0.33 && $readAvg < 0.66" | bc) -eq "1" ]
+					then
+						htmlTABLEROWS yellow
+				else
+					htmlTABLEROWS red
+				fi
+##### Forcing each machine to have a row, regardless if unreachable or not ##
+			htmlTABLECELLS
+				echo $machine
+			htmlTABLECELLE
+		else
+##### Forcing each machine to have a row, regardless if unreachable or not ##
+			htmlTABLEROWS grey
+			htmlTABLECELLS
+				echo $machine
+			htmlTABLECELLE
+			for i in {0..9} 
+				do
+					htmlTABLECELLS
+						echo ""
+					htmlTABLECELLE
+				done
+		fi
+
+		for info in	$(cat $directory/$machine | awk '{print $2}'| tail -n +2)
+			do
+				htmlTABLECELLS
+					echo $info
+				htmlTABLECELLE
+			done 
+	htmlTABLEROWE
+	done >> $webpage
+
+htmlTABLEEND
+colorKEY
+htmlFOOTER
+htmlCLOSE
+
+####### Exit Script ########
+exit 0
